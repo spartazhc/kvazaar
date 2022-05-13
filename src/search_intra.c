@@ -428,7 +428,8 @@ static int8_t search_intra_rough(encoder_state_t * const state,
   if (state->encoder_control->cfg.full_intra_search) {
     offset = 1;
   } else {
-    static const int8_t offsets[4] = { 2, 4, 8, 8 };
+    // let size 8x8 use offset=8
+    static const int8_t offsets[4] = { 2, 8, 8, 8 };
     offset = offsets[log2_width - 2];
   }
 
@@ -457,48 +458,48 @@ static int8_t search_intra_rough(encoder_state_t * const state,
     }
   }
 
-  int8_t best_mode = modes[select_best_mode_index(modes, costs, modes_selected)];
-  double best_cost = min_cost;
+  // int8_t best_mode = modes[select_best_mode_index(modes, costs, modes_selected)];
+  // double best_cost = min_cost;
   
-  // Skip recursive search if all modes have the same cost.
-  if (min_cost != max_cost) {
-    // Do a recursive search to find the best mode, always centering on the
-    // current best mode.
-    while (offset > 1) {
-      offset >>= 1;
+  // // Skip recursive search if all modes have the same cost.
+  // if (min_cost != max_cost) {
+  //   // Do a recursive search to find the best mode, always centering on the
+  //   // current best mode.
+  //   while (offset > 1) {
+  //     offset >>= 1;
 
-      int8_t center_node = best_mode;
-      int8_t test_modes[] = { center_node - offset, center_node + offset };
+  //     int8_t center_node = best_mode;
+  //     int8_t test_modes[] = { center_node - offset, center_node + offset };
 
-      double costs_out[PARALLEL_BLKS] = { 0 };
-      char mode_in_range = 0;
+  //     double costs_out[PARALLEL_BLKS] = { 0 };
+  //     char mode_in_range = 0;
 
-      for (int i = 0; i < PARALLEL_BLKS; ++i) mode_in_range |= (test_modes[i] >= 2 && test_modes[i] <= 34);
+  //     for (int i = 0; i < PARALLEL_BLKS; ++i) mode_in_range |= (test_modes[i] >= 2 && test_modes[i] <= 34);
 
-      if (mode_in_range) {
-        for (int i = 0; i < PARALLEL_BLKS; ++i) {
-          if (test_modes[i] >= 2 && test_modes[i] <= 34) {
-            kvz_intra_predict(refs, log2_width, test_modes[i], COLOR_Y, preds[i], filter_boundary);
-          }
-        }
+  //     if (mode_in_range) {
+  //       for (int i = 0; i < PARALLEL_BLKS; ++i) {
+  //         if (test_modes[i] >= 2 && test_modes[i] <= 34) {
+  //           kvz_intra_predict(refs, log2_width, test_modes[i], COLOR_Y, preds[i], filter_boundary);
+  //         }
+  //       }
 
-        //TODO: add generic version of get cost multi
-        get_cost_dual(state, preds, orig_block, satd_dual_func, sad_dual_func, width, costs_out);
+  //       //TODO: add generic version of get cost multi
+  //       get_cost_dual(state, preds, orig_block, satd_dual_func, sad_dual_func, width, costs_out);
 
-        for (int i = 0; i < PARALLEL_BLKS; ++i) {
-          if (test_modes[i] >= 2 && test_modes[i] <= 34) {
-            costs[modes_selected] = costs_out[i];
-            modes[modes_selected] = test_modes[i];
-            if (costs[modes_selected] < best_cost) {
-              best_cost = costs[modes_selected];
-              best_mode = modes[modes_selected];
-            }
-            ++modes_selected;
-          }
-        }
-      }
-    }
-  }
+  //       for (int i = 0; i < PARALLEL_BLKS; ++i) {
+  //         if (test_modes[i] >= 2 && test_modes[i] <= 34) {
+  //           costs[modes_selected] = costs_out[i];
+  //           modes[modes_selected] = test_modes[i];
+  //           if (costs[modes_selected] < best_cost) {
+  //             best_cost = costs[modes_selected];
+  //             best_mode = modes[modes_selected];
+  //           }
+  //           ++modes_selected;
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   int8_t add_modes[5] = {intra_preds[0], intra_preds[1], intra_preds[2], 0, 1};
 
