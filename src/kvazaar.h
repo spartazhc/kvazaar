@@ -88,7 +88,7 @@ extern "C" {
 #define KVZ_DATA_CHUNK_SIZE 4096
 
 #ifndef KVZ_BIT_DEPTH
-#define KVZ_BIT_DEPTH 8
+#define KVZ_BIT_DEPTH 10
 #endif
 
 #if KVZ_BIT_DEPTH == 8

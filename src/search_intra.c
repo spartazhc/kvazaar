@@ -870,7 +870,7 @@ void kvz_search_cu_intra(encoder_state_t * const state,
   }
 
   // Set transform depth to current depth, meaning no transform splits.
-  kvz_lcu_fill_trdepth(lcu, x_px, y_px, depth, depth);
+  kvz_lcu_fill_trdepth(lcu, x_px, y_px, depth, depth+1);
   // Refine results with slower search or get some results if rough search was skipped.
   const int32_t rdo_level = state->encoder_control->cfg.rdo;
   if (rdo_level >= 2 || skip_rough_search) {

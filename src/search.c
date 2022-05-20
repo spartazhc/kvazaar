@@ -642,6 +642,8 @@ static uint8_t get_ctx_cu_split_model(const lcu_t *lcu, int x, int y, int depth)
  */
 static double search_cu(encoder_state_t * const state, int x, int y, int depth, lcu_t *work_tree)
 {
+  const int max_depth = 3;
+  const int max_pu_depth = 4;
   const encoder_control_t* ctrl = state->encoder_control;
   const videoframe_t * const frame = state->tile->frame;
   int cu_width = LCU_WIDTH >> depth;
@@ -685,21 +687,29 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
 
   cur_cu = LCU_GET_CU_AT_PX(lcu, x_local, y_local);
   // Assign correct depth
-  cur_cu->depth = depth > MAX_DEPTH ? MAX_DEPTH : depth;
+  cur_cu->depth = depth > max_depth ? max_depth : depth;
   cur_cu->tr_depth = depth > 0 ? depth : 1;
   cur_cu->type = CU_NOTSET;
   cur_cu->part_size = SIZE_2Nx2N;
   cur_cu->qp = state->qp;
 
+  bool do_search = true;
+  if (depth <= 1) {
+    cost = (INT_MAX >> depth) - depth;
+    do_search = false;
+  }
+
   // If the CU is completely inside the frame at this depth, search for
   // prediction modes at this depth.
   if (x + cu_width <= frame->width &&
-      y + cu_width <= frame->height)
+      y + cu_width <= frame->height &&
+      do_search)
   {
+  // printf("(%d, %d) d%d-%d, t%d\n", y, x, depth, cur_cu->depth, cur_cu->type);
     int cu_width_inter_min = LCU_WIDTH >> pu_depth_inter.max;
     bool can_use_inter =
       state->frame->slicetype != KVZ_SLICE_I &&
-      depth <= MAX_DEPTH &&
+      depth <= max_depth &&
       (
         WITHIN(depth, pu_depth_inter.min, pu_depth_inter.max) ||
         // When the split was forced because the CTU is partially outside the
@@ -788,7 +798,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
       if (intra_cost < cost) {
         cost = intra_cost;
         cur_cu->type = CU_INTRA;
-        cur_cu->part_size = depth > MAX_DEPTH ? SIZE_NxN : SIZE_2Nx2N;
+        cur_cu->part_size = depth > max_depth ? SIZE_NxN : SIZE_2Nx2N;
         cur_cu->intra.mode = intra_mode;
         cur_cu->skipped = 0;
         cur_cu->merged = 0;
@@ -881,7 +891,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
         cur_cu);
     }
     else {
-      // Intra 4×4 PUs
+      // Intra 4ï¿½4 PUs
       if (state->frame->slicetype != KVZ_SLICE_I) {
         cabac_ctx_t* ctx = &(cabac->ctx.cu_pred_mode_model);
         CABAC_FBITS_UPDATE(cabac, ctx, 1, bits, "pred_mode_flag");
@@ -937,14 +947,14 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
 
     double split_bits = 0;
 
-    if (depth < MAX_DEPTH) {
+    if (depth < max_depth) {
       // Add cost of cu_split_flag.
       uint8_t split_model = get_ctx_cu_split_model(lcu, x, y, depth);
       cabac_ctx_t *ctx = &(state->search_cabac.ctx.split_flag_model[split_model]);
       CABAC_FBITS_UPDATE(&state->search_cabac, ctx, 1, split_bits, "split_search");
     }
 
-    if (cur_cu->type == CU_INTRA && depth == MAX_DEPTH) {
+    if (cur_cu->type == CU_INTRA && depth == max_depth) {
       // Add cost of intra part_size.
       cabac_ctx_t *ctx = &(state->search_cabac.ctx.part_size_model[0]);
       CABAC_FBITS_UPDATE(&state->search_cabac, ctx, 0, split_bits, "split_search");
@@ -970,7 +980,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
     // of the top left CU from the next depth. This should ensure that 64x64
     // gets used, at least in the most obvious cases, while avoiding any
     // searching.
-    if (cur_cu->type == CU_NOTSET && depth < MAX_PU_DEPTH
+/*     if (cur_cu->type == CU_NOTSET && depth < max_pu_depth
         && x + cu_width <= frame->width && y + cu_width <= frame->height 
         && state->encoder_control->cfg.combine_intra_cus)
     {
@@ -984,12 +994,12 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
         memcpy(&state->search_cabac, &pre_search_cabac, sizeof(pre_search_cabac));
         cost = 0;
         double bits = 0;
-        if (depth < MAX_DEPTH) {
+        if (depth < max_depth) {
           uint8_t split_model = get_ctx_cu_split_model(lcu, x, y, depth);
           cabac_ctx_t* ctx = &(state->search_cabac.ctx.split_flag_model[split_model]);
           CABAC_FBITS_UPDATE(&state->search_cabac, ctx, 0, bits, "no_split_search");
         }
-        else if (depth == MAX_DEPTH && cur_cu->type == CU_INTRA) {
+        else if (depth == max_depth && cur_cu->type == CU_INTRA) {
           // Add cost of intra part_size.
           cabac_ctx_t* ctx = &(state->search_cabac.ctx.part_size_model[0]);
           CABAC_FBITS_UPDATE(&state->search_cabac, ctx, 1, bits, "no_split_search");
@@ -1018,8 +1028,9 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
         memcpy(&post_seach_cabac, &state->search_cabac, sizeof(post_seach_cabac));
         memcpy(&state->search_cabac, &temp_cabac, sizeof(temp_cabac));
       }
-    }
+    } */
 
+  // printf("(%d, %d) d%d, t%d, (c, cs)=(%.0f, %.0f)\n", y, x, cur_cu->depth, cur_cu->type, cost, split_cost);
     if (split_cost < cost) {
       // Copy split modes to this depth.
       cost = split_cost;
@@ -1033,7 +1044,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
       memcpy(&state->search_cabac, &post_seach_cabac, sizeof(post_seach_cabac));
       work_tree_copy_down(x_local, y_local, depth, work_tree);
     }
-  } else if (depth >= 0 && depth < MAX_PU_DEPTH) {
+  } else if (depth >= 0 && depth < max_pu_depth) {
     // Need to copy modes down since the lower level of the work tree is used
     // when searching SMP and AMP blocks.
     work_tree_copy_down(x_local, y_local, depth, work_tree);
