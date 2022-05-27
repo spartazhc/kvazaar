@@ -878,7 +878,8 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
   }
 
   if (cur_cu->type == CU_INTRA || cur_cu->type == CU_INTER) {
-    double bits = 0;
+    cost = 1;
+    /* double bits = 0;
     cabac_data_t* cabac  = &state->search_cabac;
     cabac->update = 1;
 
@@ -924,7 +925,7 @@ static double search_cu(encoder_state_t * const state, int x, int y, int depth, 
       cur_cu->cbf = 0;
       lcu_fill_cbf(lcu, x_local, y_local, cu_width, cur_cu);
     }
-    cabac->update = 0;
+    cabac->update = 0; */
   } 
 
   bool can_split_cu =
